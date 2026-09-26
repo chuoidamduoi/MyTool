@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chuoidamduoi</title>
+  <!-- Thư viện SheetJS (Excel) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <!-- Thư viện chụp ảnh html2canvas & xuất PDF jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 0 20px;
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      color: #0f172a;
+    }
+
+    .instructions {
+      background: #f1f5f9;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .instructions kbd {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    .actions {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tree-title-group {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tree-title-input {
+      font-size: 15px;
+      font-weight: bold;
+      padding: 8px 12px;
+      width: 350px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+      background: white;
+    }
+
+    .tree-title-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px #bfdbfe;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: none;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-save {
+      background: #16a34a;
+      color: white;
+    }
+
+    .btn-save:hover {
+      background: #15803d;
+    }
+
+    .btn-load {
+      background: #d97706;
+      color: white;
+    }
+
+    .btn-load:hover {
+      background: #b45309;
+    }
+
+    .btn-export-img {
+      background: #0284c7;
+      color: white;
+    }
+
+    .btn-export-img:hover {
+      background: #0369a1;
+    }
+
+    .btn-export-pdf {
+      background: #7c3aed;
+      color: white;
+    }
+
+    .btn-export-pdf:hover {
+      background: #6d28d9;
+    }
+
+    .btn-toggle-all {
+      background: #475569;
+      color: white;
+    }
+
+    .btn-toggle-all:hover {
+      background: #334155;
+    }
+
+    /* Tree Styling */
+    .tree-container {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      min-height: 450px;
+      overflow-x: auto;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 28px;
+      position: relative;
+      margin: 0;
+      min-height: 5px;
+    }
+
+    ul.root {
+      padding-left: 0;
+    }
+
+    ul:not(.root)::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 0;
+      bottom: 12px;
+      border-left: 1px dashed #94a3b8;
+    }
+
+    li {
+      position: relative;
+      margin: 6px 0;
+    }
+
+    ul:not(.root)>li::before {
+      content: '';
+      position: absolute;
+      left: -16px;
+      top: 18px;
+      width: 14px;
+      border-top: 1px dashed #94a3b8;
+    }
+
+    /* Thu gọn / Nút ẩn hiện nhánh */
+    li.collapsed>ul {
+      display: none !important;
+    }
+
+    .toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      font-size: 11px;
+      cursor: pointer;
+      color: #64748b;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      user-select: none;
+      transition: all 0.15s;
+      margin-right: 2px;
+      padding: 0 4px;
+      font-weight: bold;
+    }
+
+    .toggle-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .toggle-btn.empty {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Badge đếm số mục con khi thu gọn */
+    .child-count-badge {
+      font-size: 11px;
+      font-weight: bold;
+      color: #2563eb;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 1px 6px;
+      margin-left: 2px;
+      display: inline-block;
+      user-select: none;
+    }
+
+    .node-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: white;
+      padding: 2px 4px;
+      border-radius: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .inputs-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .single-input-box {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    /* Ô nhập nội dung bằng contenteditable div */
+    .node-input {
+      padding: 7px 24px 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+      min-width: 180px;
+      max-width: 400px;
+      outline: none;
+      transition: all 0.15s;
+      background: #fff;
+      display: inline-block;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .node-input:empty::before {
+      content: attr(data-placeholder);
+      color: #94a3b8;
+    }
+
+    .node-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px #bfdbfe !important;
+    }
+
+    .node-input.extra-input {
+      min-width: 120px;
+      border-style: dashed;
+      border-color: #94a3b8;
+    }
+
+    .node-input.extra-input:focus {
+      border-style: solid;
+      border-color: #2563eb;
+    }
+
+    /* BỘ MÀU TỰ ĐỘNG THEO LEVEL */
+    .lvl-0 {
+      background-color: #1e293b !important;
+      color: #ffffff !important;
+      font-weight: bold;
+      border-color: #0f172a !important;
+    }
+
+    .lvl-0:empty::before {
+      color: #94a3b8 !important;
+    }
+
+    .lvl-1 {
+      background-color: #eff6ff !important;
+      color: #1e3a8a !important;
+      border-color: #93c5fd !important;
+      font-weight: 600;
+    }
+
+    .lvl-2 {
+      background-color: #f0fdf4 !important;
+      color: #14532d !important;
+      border-color: #86efac !important;
+      font-weight: 600;
+    }
+
+    .lvl-3 {
+      background-color: #fff7ed !important;
+      color: #7c2d12 !important;
+      border-color: #fdba74 !important;
+    }
+
+    .lvl-4 {
+      background-color: #faf5ff !important;
+      color: #581c87 !important;
+      border-color: #d8b4fe !important;
+    }
+
+    .lvl-5 {
+      background-color: #fdf2f8 !important;
+      color: #831843 !important;
+      border-color: #fbcfe8 !important;
+    }
+
+    /* Dấu x nhỏ nằm góc phải trên của mỗi ô */
+    .btn-cell-close {
+      position: absolute;
+      right: 4px;
+      top: 3px;
+      width: 16px;
+      height: 16px;
+      line-height: 14px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: #94a3b8;
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      transition: all 0.15s;
+    }
+
+    .single-input-box:hover .btn-cell-close {
+      color: #64748b;
+    }
+
+    .btn-cell-close:hover {
+      background: #ef4444 !important;
+      color: #ffffff !important;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      color: #94a3b8;
+      font-size: 16px;
+      user-select: none;
+      padding: 0 4px;
+    }
+
+    .drag-handle:hover {
+      color: #475569;
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: normal;
+    }
+
+    .btn-icon:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .btn-add-extra {
+      color: #2563eb;
+      font-weight: bold;
+      background: #eff6ff;
+    }
+
+    .btn-add-extra:hover {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .btn-delete:hover {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    li.dragging {
+      opacity: 0.4;
+    }
+
+    li.drag-over>.node-wrapper {
+      background: #dbeafe;
+      border: 1px dashed #2563eb;
+    }
+
+    /* Ẩn các nút điều khiển khi chụp hình / xuất file */
+    body.exporting .drag-handle,
+    body.exporting .btn-cell-close,
+    body.exporting .btn-add-extra,
+    body.exporting .btn-delete,
+    body.exporting .toggle-btn {
+      display: none !important;
+    }
+
+    .flex {
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>VẼ SƠ ĐỒ PHÂN CẤP</h2>
+
+  <div class="instructions">
+    <b>Mẹo thao tác:</b>
+    <span style="margin-left: 10px;"><kbd>Enter</kbd>: Thêm nhánh bên dưới</span> |
+    <span style="margin-left: 5px;"><kbd>Tab</kbd> / <kbd>→</kbd>: Lùi vào trong</span> |
+    <span style="margin-left: 5px;"><kbd>Shift + Tab</kbd> / <kbd>←</kbd>: Thăng cấp ra ngoài</span> |
+    <span style="margin-left: 5px;"><kbd>➕ Ô phụ</kbd>: Thêm ô cùng dòng</span> |
+    <span style="margin-left: 5px;"><kbd>Delete</kbd> hoặc <kbd>Ctrl + X</kbd>: Xóa ô hiện tại</span>
+  </div>
+  <div class="flex">
+    <div class="tree-title-group">
+      <label for="tree-name"><b>Tên sơ đồ:</b></label>
+      <input type="text" id="tree-name" class="tree-title-input" placeholder="Nhập tên sơ đồ..."
+        value="Sơ đồ công việc phân cấp" />
+    </div>
+
+    <div class="actions">
+      <button class="btn-save" onclick="exportToExcel()">💾 Lưu file Excel</button>
+      <button class="btn-load" onclick="document.getElementById('import-file').click()">📂 Mở file Excel</button>
+      <button class="btn-export-img" onclick="exportToImage()">📸 Xuất hình PNG</button>
+      <button class="btn-export-pdf" onclick="exportToPDF()">📄 Xuất file PDF</button>
+      <input type="file" id="import-file" accept=".xlsx, .xls" style="display:none" onchange="importFromExcel(event)" />
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn-icon" onclick="expandAll()" title="Mở rộng toàn bộ các cấp">↕ Mở rộng tất cả</button>
+    <button class="btn-icon" onclick="collapseAll()" title="Thu gọn toàn bộ các cấp">↕ Thu gọn tất cả</button>
+  </div>
+
+
+  <div class="tree-container" id="capture-area">
+    <ul id="tree-root" class="root"></ul>
+  </div>
+
+  <script>
+    let draggedLi = null;
+
+    // Cập nhật trạng thái nút Thu gọn / Mở rộng (▼ / ►), hiển thị đếm số lượng con & màu sắc Level
+    function updateTreeUI() {
+      const rootUl = document.getElementById('tree-root');
+
+      function processNode(ul, currentLevel) {
+        const lis = ul.children;
+        for (let li of lis) {
+          if (li.tagName !== 'LI') continue;
+
+          // Tô màu theo level
+          const inputs = li.querySelectorAll(':scope > .node-wrapper > .inputs-group .node-input');
+          inputs.forEach(inp => {
+            inp.classList.remove('lvl-0', 'lvl-1', 'lvl-2', 'lvl-3', 'lvl-4', 'lvl-5');
+            const colorClass = 'lvl-' + Math.min(currentLevel, 5);
+            inp.classList.add(colorClass);
+          });
+
+          // Cập nhật nút Mở rộng / Thu gọn & Số lượng con
+          const childUl = li.querySelector(':scope > ul');
+          const toggleBtn = li.querySelector(':scope > .node-wrapper > .toggle-btn');
+          let countBadge = li.querySelector(':scope > .node-wrapper > .child-count-badge');
+
+          if (childUl && childUl.children.length > 0) {
+            const childCount = childUl.children.length;
+            toggleBtn.classList.remove('empty');
+
+            if (li.classList.contains('collapsed')) {
+              toggleBtn.innerHTML = '►';
+              toggleBtn.title = 'Mở rộng nhánh này';
+
+              // Tạo hoặc cập nhật badge đếm số lượng mục con
+              if (!countBadge) {
+                countBadge = document.createElement('span');
+                countBadge.className = 'child-count-badge';
+                toggleBtn.after(countBadge);
+              }
+              countBadge.innerText = `+${childCount}`;
+              countBadge.style.display = 'inline-block';
+            } else {
+              toggleBtn.innerHTML = '▼';
+              toggleBtn.title = 'Thu gọn nhánh này';
+              if (countBadge) {
+                countBadge.style.display = 'none';
+              }
+            }
+            processNode(childUl, currentLevel + 1);
+          } else {
+            toggleBtn.classList.add('empty');
+            toggleBtn.innerHTML = '•';
+            if (countBadge) {
+              countBadge.style.display = 'none';
+            }
+          }
+        }
+      }
+
+      processNode(rootUl, 0);
+    }
+
+    // Thu gọn toàn bộ cây
+    function collapseAll() {
+      const allLis = document.querySelectorAll('#tree-root li');
+      allLis.forEach(li => {
+        if (li.querySelector(':scope > ul')) {
+          li.classList.add('collapsed');
+        }
+      });
+      updateTreeUI();
+    }
+
+    // Mở rộng toàn bộ cây
+    function expandAll() {
+      const allLis = document.querySelectorAll('#tree-root li');
+      allLis.forEach(li => li.classList.remove('collapsed'));
+      updateTreeUI();
+    }
+
+    // Tạo ô gõ chữ dùng contenteditable
+    function buildInputBox(placeholder = '', value = '', isExtra = false, currentLi = null) {
+      const box = document.createElement('div');
+      box.className = 'single-input-box';
+
+      const input = document.createElement('div');
+      input.contentEditable = 'true';
+      input.className = 'node-input' + (isExtra ? ' extra-input' : ' main-input');
+      input.setAttribute('data-placeholder', placeholder);
+      input.innerText = value;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'btn-cell-close';
+      closeBtn.innerHTML = '✕';
+      closeBtn.title = 'Xóa ô này (Delete / Ctrl+X)';
+      closeBtn.onclick = () => deleteSpecificCell(box, input, isExtra, currentLi);
+
+      box.appendChild(input);
+      box.appendChild(closeBtn);
+
+      let isComposing = false;
+      input.addEventListener('compositionstart', () => isComposing = true);
+      input.addEventListener('compositionend', () => isComposing = false);
+
+      input.addEventListener('keydown', (e) => {
+        if (isComposing) return;
+
+        if (e.key === 'Delete') {
+          e.preventDefault();
+          deleteSpecificCell(box, input, isExtra, currentLi);
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+          const selectedText = window.getSelection().toString();
+          if (!selectedText) {
+            e.preventDefault();
+            deleteSpecificCell(box, input, isExtra, currentLi);
+            return;
+          }
+        }
+
+        if (!isExtra && currentLi) {
+          handleMainKeyDown(e, currentLi, input);
+        }
+      });
+
+      return {box, input};
+    }
+
+    function deleteSpecificCell(boxElement, inputElement, isExtra, currentLi) {
+      if (isExtra) {
+        boxElement.remove();
+      } else if (currentLi) {
+        removeNode(currentLi);
+      }
+    }
+
+    function createNode(mainValue = '', extraValues = []) {
+      const li = document.createElement('li');
+      li.setAttribute('draggable', 'true');
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'node-wrapper';
+
+      const toggleBtn = document.createElement('span');
+      toggleBtn.className = 'toggle-btn empty';
+      toggleBtn.onclick = (e) => {
+        e.stopPropagation();
+        li.classList.toggle('collapsed');
+        updateTreeUI();
+      };
+
+      const handle = document.createElement('span');
+      handle.className = 'drag-handle';
+      handle.innerHTML = '⋮⋮';
+      handle.title = 'Giữ & kéo để di chuyển nhánh';
+
+      const inputsGroup = document.createElement('div');
+      inputsGroup.className = 'inputs-group';
+
+      const {box: mainBox, input: mainInput} = buildInputBox('Nhập thông tin...', mainValue, false, li);
+      inputsGroup.appendChild(mainBox);
+
+      if (Array.isArray(extraValues)) {
+        extraValues.forEach(val => {
+          const {box: extraBox} = buildInputBox('Thông tin phụ...', val, true, li);
+          inputsGroup.appendChild(extraBox);
+        });
+      }
+
+      const addExtraBtn = document.createElement('button');
+      addExtraBtn.className = 'btn-icon btn-add-extra';
+      addExtraBtn.innerHTML = '➕ Ô phụ';
+      addExtraBtn.title = 'Thêm 1 ô thông tin cùng dòng';
+      addExtraBtn.onclick = () => {
+        const {box: extraBox, input: extraInp} = buildInputBox('Thông tin phụ...', '', true, li);
+        inputsGroup.appendChild(extraBox);
+        updateTreeUI();
+        extraInp.focus();
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-icon btn-delete';
+      delBtn.innerHTML = '❌';
+      delBtn.title = 'Xóa toàn bộ nhánh này';
+      delBtn.onclick = () => removeNode(li);
+
+      wrapper.appendChild(toggleBtn);
+      wrapper.appendChild(handle);
+      wrapper.appendChild(inputsGroup);
+      wrapper.appendChild(addExtraBtn);
+      wrapper.appendChild(delBtn);
+      li.appendChild(wrapper);
+
+      li.addEventListener('dragstart', handleDragStart);
+      li.addEventListener('dragover', handleDragOver);
+      li.addEventListener('dragleave', handleDragLeave);
+      li.addEventListener('drop', handleDrop);
+      li.addEventListener('dragend', handleDragEnd);
+
+      setTimeout(updateTreeUI, 0);
+
+      return {li, input: mainInput};
+    }
+
+    function indentToSubfolder(currentLi) {
+      const prevLi = currentLi.previousElementSibling;
+      if (!prevLi) return;
+
+      let subUl = prevLi.querySelector(':scope > ul');
+      if (!subUl) {
+        subUl = document.createElement('ul');
+        prevLi.appendChild(subUl);
+      }
+      subUl.appendChild(currentLi);
+      prevLi.classList.remove('collapsed');
+      updateTreeUI();
+    }
+
+    function outdentFolder(currentLi) {
+      const parentUl = currentLi.parentElement;
+      const parentLi = parentUl.closest('li');
+      if (parentLi) {
+        parentLi.after(currentLi);
+        if (parentUl.children.length === 0) parentUl.remove();
+        updateTreeUI();
+      }
+    }
+
+    function handleMainKeyDown(e, currentLi, input) {
+      const sel = window.getSelection();
+      const cursorAtEnd = sel.focusOffset === input.innerText.length;
+      const cursorAtStart = sel.focusOffset === 0;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const {li, input: newInput} = createNode();
+
+        currentLi.classList.remove('collapsed');
+
+        const childUl = currentLi.querySelector(':scope > ul');
+        if (childUl && childUl.children.length > 0) {
+          childUl.insertBefore(li, childUl.firstElementChild);
+        } else {
+          currentLi.after(li);
+        }
+        updateTreeUI();
+        newInput.focus();
+      }
+      else if (e.key === 'ArrowRight' && cursorAtEnd) {
+        e.preventDefault();
+        indentToSubfolder(currentLi);
+        input.focus();
+      }
+      else if (e.key === 'ArrowLeft' && cursorAtStart) {
+        e.preventDefault();
+        outdentFolder(currentLi);
+        input.focus();
+      }
+      else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          outdentFolder(currentLi);
+        } else {
+          indentToSubfolder(currentLi);
+        }
+        input.focus();
+      }
+      else if (e.key === 'Backspace' && input.innerText.trim() === '') {
+        e.preventDefault();
+        removeNode(currentLi);
+      }
+    }
+
+    function removeNode(li) {
+      const parentUl = li.parentElement;
+      const inputs = Array.from(document.querySelectorAll('.main-input'));
+      const currentIndex = inputs.indexOf(li.querySelector('.main-input'));
+
+      li.remove();
+
+      if (parentUl && parentUl.children.length === 0 && !parentUl.classList.contains('root')) {
+        parentUl.remove();
+      }
+
+      updateTreeUI();
+
+      const remainingInputs = document.querySelectorAll('.main-input');
+      if (remainingInputs.length > 0) {
+        const targetIndex = Math.max(0, currentIndex - 1);
+        remainingInputs[targetIndex].focus();
+      } else {
+        initTree();
+      }
+    }
+
+    /* DRAG & DROP LOGIC */
+    function handleDragStart(e) {
+      e.stopPropagation();
+      draggedLi = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!draggedLi || draggedLi.contains(this)) return;
+      this.classList.add('drag-over');
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDragLeave(e) {
+      e.stopPropagation();
+      this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.classList.remove('drag-over');
+
+      if (!draggedLi || draggedLi === this || draggedLi.contains(this)) return;
+
+      const rect = this.getBoundingClientRect();
+      const offsetY = e.clientY - rect.top;
+
+      if (offsetY < rect.height / 2) {
+        this.before(draggedLi);
+      } else {
+        let childUl = this.querySelector(':scope > ul');
+        if (!childUl) {
+          childUl = document.createElement('ul');
+          this.appendChild(childUl);
+        }
+        childUl.appendChild(draggedLi);
+        this.classList.remove('collapsed');
+      }
+      updateTreeUI();
+    }
+
+    function handleDragEnd(e) {
+      e.stopPropagation();
+      if (draggedLi) {
+        draggedLi.classList.remove('dragging');
+        draggedLi = null;
+      }
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      updateTreeUI();
+    }
+
+    function initTree() {
+      const rootUl = document.getElementById('tree-root');
+      rootUl.innerHTML = '';
+      const {li, input} = createNode('Công việc gốc');
+      rootUl.appendChild(li);
+      updateTreeUI();
+      input.focus();
+    }
+
+    /* 📸 XUẤT HÌNH ẢNH PNG */
+    function exportToImage() {
+      const targetArea = document.getElementById('capture-area');
+      const title = document.getElementById('tree-name').value.trim() || 'So_do_cay';
+
+      document.body.classList.add('exporting');
+
+      html2canvas(targetArea, {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      }).then(canvas => {
+        document.body.classList.remove('exporting');
+        const link = document.createElement('a');
+        link.download = `${title}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }).catch(err => {
+        document.body.classList.remove('exporting');
+        console.error(err);
+      });
+    }
+
+    /* 📄 XUẤT FILE PDF */
+    function exportToPDF() {
+      const targetArea = document.getElementById('capture-area');
+      const title = document.getElementById('tree-name').value.trim() || 'So_do_cay';
+
+      document.body.classList.add('exporting');
+
+      html2canvas(targetArea, {
+        scale: 2,
+        backgroundColor: '#ffffff'
+      }).then(canvas => {
+        document.body.classList.remove('exporting');
+        const imgData = canvas.toDataURL('image/png');
+        const {jsPDF} = window.jspdf;
+
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+
+        const pdf = new jsPDF({
+          orientation: imgWidth > imgHeight ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [imgWidth + 40, imgHeight + 40]
+        });
+
+        pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, imgHeight);
+        pdf.save(`${title}.pdf`);
+      }).catch(err => {
+        document.body.classList.remove('exporting');
+        console.error(err);
+      });
+    }
+
+    /* XUẤT EXCEL */
+    function parseTree(ulElement, level = 0, parentPath = '', treeTitle = '') {
+      let data = [];
+      const items = ulElement.children;
+
+      for (let item of items) {
+        if (item.tagName !== 'LI') continue;
+        const mainInput = item.querySelector(':scope > .node-wrapper > .inputs-group .main-input');
+        const mainVal = mainInput ? mainInput.innerText.trim() : '';
+
+        const extraInputs = item.querySelectorAll(':scope > .node-wrapper > .inputs-group .extra-input');
+        const extraVals = Array.from(extraInputs).map(inp => inp.innerText.trim());
+
+        if (mainVal || extraVals.some(v => v !== '')) {
+          const currentPath = parentPath ? `${parentPath}/${mainVal}` : mainVal;
+
+          let rowData = {
+            "Tên cây": treeTitle,
+            "Level": level,
+            "Nội dung": mainVal
+          };
+
+          extraVals.forEach((val, index) => {
+            rowData[`Nội dung phụ ${index + 1}`] = val;
+          });
+
+          rowData["Đường dẫn"] = currentPath;
+
+          data.push(rowData);
+
+          const childUl = item.querySelector(':scope > ul');
+          if (childUl) {
+            data = data.concat(parseTree(childUl, level + 1, currentPath, treeTitle));
+          }
+        }
+      }
+      return data;
+    }
+
+    function exportToExcel() {
+      const rootUl = document.getElementById('tree-root');
+      const treeTitleInput = document.getElementById('tree-name').value.trim();
+      const treeTitle = treeTitleInput || 'Sơ đồ cây';
+
+      const treeData = parseTree(rootUl, 0, '', treeTitle);
+
+      if (treeData.length === 0) {
+        alert('Sơ đồ đang trống!');
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(treeData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "DataTree");
+
+      const cleanTitle = treeTitle.replace(/[^a-zA-Z0-9_À-ỹ\s-]/g, '').trim().replace(/\s+/g, '_');
+      XLSX.writeFile(workbook, `${cleanTitle}.xlsx`);
+    }
+
+    /* NHẬP EXCEL */
+    function importFromExcel(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, {type: 'array'});
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
+
+          if (!json || json.length === 0) {
+            alert('File Excel không đúng định dạng hoặc trống!');
+            return;
+          }
+
+          if (json[0]['Tên cây']) {
+            document.getElementById('tree-name').value = json[0]['Tên cây'];
+          }
+
+          const rootUl = document.getElementById('tree-root');
+          rootUl.innerHTML = '';
+
+          const stack = [{level: -1, ul: rootUl}];
+
+          json.forEach(row => {
+            const level = parseInt(row['Level'], 10);
+            const mainVal = row['Nội dung'] || row['Tên thư mục'] || '';
+
+            const extraVals = [];
+            Object.keys(row).forEach(key => {
+              if (key.startsWith('Nội dung phụ')) {
+                extraVals.push(row[key]);
+              }
+            });
+
+            if (isNaN(level)) return;
+
+            const {li} = createNode(mainVal, extraVals);
+
+            while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+              stack.pop();
+            }
+
+            const currentParent = stack[stack.length - 1];
+            let targetUl = currentParent.ul;
+
+            if (currentParent.level === level - 1) {
+              targetUl = currentParent.ul;
+            } else {
+              const lastLi = targetUl.lastElementChild;
+              if (lastLi) {
+                let childUl = lastLi.querySelector(':scope > ul');
+                if (!childUl) {
+                  childUl = document.createElement('ul');
+                  lastLi.appendChild(childUl);
+                }
+                targetUl = childUl;
+              }
+            }
+
+            targetUl.appendChild(li);
+
+            let nextUl = li.querySelector(':scope > ul');
+            if (!nextUl) {
+              nextUl = document.createElement('ul');
+              li.appendChild(nextUl);
+            }
+            stack.push({level: level, ul: nextUl});
+          });
+
+          rootUl.querySelectorAll('ul').forEach(ul => {
+            if (ul.children.length === 0) ul.remove();
+          });
+
+          updateTreeUI();
+          e.target.value = '';
+
+        } catch (err) {
+          alert('Lỗi đọc file Excel. Vui lòng kiểm tra lại file!');
+          console.error(err);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    window.onload = initTree;
+  </script>
+</body>
+
+</html>
